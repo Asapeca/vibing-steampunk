@@ -262,13 +262,27 @@ func TestCheckABAPRemovesTheProgramAfterCancellation(t *testing.T) {
 	}
 }
 
-func TestCheckABAPCreatesNothingItCouldNotDelete(t *testing.T) {
-	// Allowed to create but not to delete would leave the program behind on
-	// every call, so the delete is gated before the create is sent.
+func TestCheckABAPDeletesItsProgramWhereDeletionIsRefused(t *testing.T) {
+	// Allowed to create but not to delete used to mean the program would be
+	// left behind, so CheckABAP refused to run. Its own temporary program is
+	// now deleted even there (temp_program_delete.go), so it runs and cleans up.
 	srv := &checkABAPServer{}
-	_, err := srv.start(t, WithSafety(SafetyConfig{DisallowedOps: "D"})).CheckABAP(context.Background(), "DATA lv TYPE i.")
-	if err == nil {
-		t.Fatal("CheckABAP ran although deletion is not allowed")
+	result, err := srv.start(t, WithSafety(SafetyConfig{DisallowedOps: "D"})).CheckABAP(context.Background(), "DATA lv TYPE i.")
+	if err != nil {
+		t.Fatalf("CheckABAP: %v", err)
+	}
+	if got, want := srv.sequence(), "create,checkrun,lock,delete"; got != want {
+		t.Fatalf("requests = %s, want %s", got, want)
+	}
+	if !result.CleanedUp {
+		t.Fatalf("result = %+v, want the program deleted", result)
+	}
+}
+
+func TestCheckABAPCreatesNothingUnderReadOnly(t *testing.T) {
+	srv := &checkABAPServer{}
+	if _, err := srv.start(t, WithSafety(SafetyConfig{ReadOnly: true})).CheckABAP(context.Background(), "DATA lv TYPE i."); err == nil {
+		t.Fatal("CheckABAP ran under --read-only")
 	}
 	if got := srv.sequence(); got != "" {
 		t.Fatalf("requests = %s, want none", got)

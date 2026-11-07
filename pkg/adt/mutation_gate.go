@@ -78,8 +78,9 @@ type MutationContext struct {
 // sub-checks by hand — that avoids the class of bug where one sub-check is
 // forgotten and a whole mutation path silently bypasses policy.
 func (c *Client) checkMutation(ctx context.Context, m MutationContext) error {
-	// 1. Operation type check
-	if err := c.checkSafety(m.Op, m.OpName); err != nil {
+	// 1. Operation type check. A workflow deleting its own temporary program
+	// passes it even where D is refused (temp_program_delete.go).
+	if err := c.checkSafety(m.Op, m.OpName); err != nil && !c.ownTemporaryDelete(ctx, m) {
 		return err
 	}
 

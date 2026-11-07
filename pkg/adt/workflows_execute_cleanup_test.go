@@ -37,7 +37,7 @@ type executeCleanupServer struct {
 	calls map[string]int
 }
 
-func (s *executeCleanupServer) start(t *testing.T) *Client {
+func (s *executeCleanupServer) start(t *testing.T, opts ...Option) *Client {
 	t.Helper()
 	s.calls = make(map[string]int)
 
@@ -98,7 +98,7 @@ func (s *executeCleanupServer) start(t *testing.T) *Client {
 	}))
 	t.Cleanup(srv.Close)
 
-	cfg := NewConfig(srv.URL, "TESTUSER", "secret")
+	cfg := NewConfig(srv.URL, "TESTUSER", "secret", opts...)
 	return NewClientWithTransport(cfg, NewTransport(cfg))
 }
 

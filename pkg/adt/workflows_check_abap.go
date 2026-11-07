@@ -86,7 +86,8 @@ func (c *Client) CheckABAP(ctx context.Context, code string) (result *CheckABAPR
 		op   OperationType
 		name string
 	}{{OpCreate, "CheckABAP (create the temporary program)"}, {OpLock, "CheckABAP (lock the temporary program for deletion)"}, {OpDelete, "CheckABAP (delete the temporary program)"}} {
-		if gateErr := c.checkMutation(ctx, MutationContext{Op: op.op, OpName: op.name, Package: "$TMP"}); gateErr != nil {
+		// The delete is of the program this call is about to create.
+		if gateErr := c.checkMutation(withOwnTemporaryDelete(ctx, ""), MutationContext{Op: op.op, OpName: op.name, Package: "$TMP"}); gateErr != nil {
 			return nil, gateErr
 		}
 	}
@@ -112,6 +113,7 @@ func (c *Client) CheckABAP(ctx context.Context, code string) (result *CheckABAPR
 	// Created in $TMP, which the gate above approved: the delete need not look
 	// the package up again (see ExecuteABAP).
 	ctx = withMutationPackageChecked(ctx, objectURL)
+	c.ownTemps.add(objectURL)
 
 	result = &CheckABAPResult{ProgramName: programName, Findings: []CheckABAPFinding{}}
 	defer func() {

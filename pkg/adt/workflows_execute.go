@@ -191,6 +191,7 @@ func (c *Client) ExecuteABAP(ctx context.Context, code string, opts *ExecuteABAP
 	// package again while holding a lock (issue #91). The defer reads this
 	// variable when it runs, so it sees the marked context too.
 	ctx = withMutationPackageChecked(ctx, objectURL)
+	c.ownTemps.add(objectURL)
 
 	// Ensure cleanup on any error (unless KeepProgram is set)
 	defer func() {
@@ -375,6 +376,7 @@ func (c *Client) ExecuteABAP(ctx context.Context, code string, opts *ExecuteABAP
 // Every warning names the program, because a warning means it may still be in
 // $TMP and the name is what the user needs to find and delete it.
 func (c *Client) deleteTemporaryProgram(ctx context.Context, objectURL, programName string) []string {
+	ctx = withOwnTemporaryDelete(ctx, objectURL)
 	lock, err := c.LockObject(ctx, objectURL, "MODIFY")
 	if err != nil {
 		return []string{fmt.Sprintf("could not lock the temporary program for cleanup, so %s is still in $TMP: %v", programName, err)}
@@ -386,6 +388,7 @@ func (c *Client) deleteTemporaryProgram(ctx context.Context, objectURL, programN
 		}
 		return warnings
 	}
+	c.ownTemps.remove(objectURL)
 	return nil
 }
 

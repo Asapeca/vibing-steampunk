@@ -26,6 +26,10 @@ type Client struct {
 	// callers leave this nil; tests inject a stub to avoid opening a real
 	// WebSocket. See enhancements.go.
 	rfcFetcherFactory func(ctx context.Context) (rfcSourceFetcher, error)
+
+	// Temporary programs this client created, which its workflows may delete
+	// even where deletion is refused. See temp_program_delete.go.
+	ownTemps ownTemporaryPrograms
 }
 
 // NewClient creates a new ADT client with the given configuration.
