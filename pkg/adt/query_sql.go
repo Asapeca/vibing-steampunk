@@ -378,7 +378,12 @@ func (c *Client) GetTableContents(ctx context.Context, tableName string, maxRows
 	// A statement in the body is freestyle SQL, whatever the entity name
 	// says: the data preview runs it as given. --block-free-sql refuses it
 	// here, at the one place every caller's statement goes through, before
-	// anything is sent. A plain table read sends no statement.
+	// anything is sent. A plain table read sends no statement, but it is
+	// still a query: --disallowed-ops Q (or an allowlist without Q) refuses
+	// it, as the README promises.
+	if err := c.checkSafety(OpQuery, "GetTableContents"); err != nil {
+		return nil, err
+	}
 	if strings.TrimSpace(sqlFilter) != "" {
 		if err := c.checkSafety(OpFreeSQL, "GetTableContents"); err != nil {
 			return nil, err
