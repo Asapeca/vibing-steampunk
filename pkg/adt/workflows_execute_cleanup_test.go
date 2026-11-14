@@ -136,8 +136,8 @@ func TestExecuteABAPCleanupSurvivesCallerCancellation(t *testing.T) {
 	if !result.CleanedUp {
 		t.Fatalf("CleanedUp = false after successful detached cleanup: %s", result.Message)
 	}
-	if got := srv.count("unlock"); got != 1 {
-		t.Fatalf("UNLOCK requests = %d, want 1 after the cancelled PUT", got)
+	if got := srv.count("unlock"); got != 2 {
+		t.Fatalf("UNLOCK requests = %d, want 2: after the cancelled PUT and after the cleanup DELETE", got)
 	}
 	if got := srv.count("delete"); got != 1 {
 		t.Fatalf("DELETE requests = %d, want 1 after caller cancellation", got)
@@ -159,8 +159,8 @@ func TestExecuteABAPPreservesPutFailureWhenUnlockFails(t *testing.T) {
 	if !strings.Contains(result.Message, "was left LOCKED") || !strings.Contains(result.Message, "500") {
 		t.Fatalf("UNLOCK failure and operator advice are not visible: %q", result.Message)
 	}
-	if got := srv.count("unlock"); got != 1 {
-		t.Fatalf("UNLOCK requests = %d, want 1", got)
+	if got := srv.count("unlock"); got != 2 {
+		t.Fatalf("UNLOCK requests = %d, want 2: after the PUT and after the cleanup DELETE", got)
 	}
 }
 

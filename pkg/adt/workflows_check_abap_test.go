@@ -220,7 +220,7 @@ func TestCheckABAPChecksInATemporaryProgramAndRemovesIt(t *testing.T) {
 	}
 	// Create, check, delete — and nothing else: no source PUT, no
 	// activation, no unit test run.
-	if got, want := srv.sequence(), "create,checkrun,lock,delete"; got != want {
+	if got, want := srv.sequence(), "create,checkrun,lock,delete,unlock"; got != want {
 		t.Fatalf("requests = %s, want %s", got, want)
 	}
 	// The check saw the snippet inside the very wrapper ExecuteABAP uses.
@@ -241,7 +241,7 @@ func TestCheckABAPRemovesTheProgramWhenTheCheckFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("a failed check run was reported as a check")
 	}
-	if got, want := srv.sequence(), "create,checkrun,lock,delete"; got != want {
+	if got, want := srv.sequence(), "create,checkrun,lock,delete,unlock"; got != want {
 		t.Fatalf("requests = %s, want %s: the temporary program must go even when the check fails", got, want)
 	}
 	if result == nil || !result.CleanedUp {
@@ -257,7 +257,7 @@ func TestCheckABAPRemovesTheProgramAfterCancellation(t *testing.T) {
 	if ctx.Err() == nil {
 		t.Fatal("test setup did not cancel the context during the check")
 	}
-	if !strings.HasSuffix(srv.sequence(), "lock,delete") || result == nil || !result.CleanedUp {
+	if !strings.HasSuffix(srv.sequence(), "lock,delete,unlock") || result == nil || !result.CleanedUp {
 		t.Fatalf("requests = %s, result = %+v: cleanup must outlive the caller's cancellation", srv.sequence(), result)
 	}
 }
@@ -271,7 +271,7 @@ func TestCheckABAPDeletesItsProgramWhereDeletionIsRefused(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CheckABAP: %v", err)
 	}
-	if got, want := srv.sequence(), "create,checkrun,lock,delete"; got != want {
+	if got, want := srv.sequence(), "create,checkrun,lock,delete,unlock"; got != want {
 		t.Fatalf("requests = %s, want %s", got, want)
 	}
 	if !result.CleanedUp {
@@ -367,6 +367,20 @@ func TestDeleteTemporaryProgramUnlocksAfterAFailedDelete(t *testing.T) {
 	}
 }
 
+func TestDeleteTemporaryProgramUnlocksAfterASuccessfulDelete(t *testing.T) {
+	srv := &executeCleanupServer{}
+	ctx := withMutationPackageChecked(context.Background(), "/sap/bc/adt/programs/programs/zvsp_chk_00000001")
+	client := srv.start(t)
+	client.ownTemps.add("/sap/bc/adt/programs/programs/zvsp_chk_00000001")
+	warnings := client.deleteTemporaryProgram(ctx, "/sap/bc/adt/programs/programs/zvsp_chk_00000001", "ZVSP_CHK_00000001")
+	if len(warnings) != 0 || srv.count("delete") != 1 {
+		t.Fatalf("delete: warnings %q, DELETE requests %d", warnings, srv.count("delete"))
+	}
+	if got := srv.count("unlock"); got != 1 {
+		t.Fatalf("UNLOCK requests = %d, want 1: the DELETE leaves the ENQUEUE in SM12", got)
+	}
+}
+
 func TestDeleteTemporaryProgramReportsAFailedLock(t *testing.T) {
 	srv := &executeCleanupServer{lockStatus: http.StatusInternalServerError}
 	warnings := srv.start(t).deleteTemporaryProgram(context.Background(), "/sap/bc/adt/programs/programs/zvsp_chk_00000001", "ZVSP_CHK_00000001")
@@ -450,7 +464,7 @@ func TestCheckABAPRefusesANotProcessedRun(t *testing.T) {
 	if result == nil || result.OK || !result.CleanedUp {
 		t.Fatalf("result = %+v, want not OK and cleaned up", result)
 	}
-	if got, want := srv.sequence(), "create,checkrun,lock,delete"; got != want {
+	if got, want := srv.sequence(), "create,checkrun,lock,delete,unlock"; got != want {
 		t.Fatalf("requests = %s, want %s", got, want)
 	}
 }

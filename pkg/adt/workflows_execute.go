@@ -381,7 +381,8 @@ func (c *Client) deleteTemporaryProgram(ctx context.Context, objectURL, programN
 	if err != nil {
 		return []string{fmt.Sprintf("could not lock the temporary program for cleanup, so %s is still in $TMP: %v", programName, err)}
 	}
-	if err := c.DeleteObject(ctx, objectURL, lock.LockHandle, ""); err != nil {
+	lockGone, err := c.deleteObject(ctx, objectURL, lock.LockHandle, "")
+	if err != nil {
 		warnings := []string{fmt.Sprintf("temporary-program DELETE outcome is unknown and was not retried, so %s may still be in $TMP: %v", programName, err)}
 		if unlockErr := c.releaseLockAfterFailure(ctx, objectURL, lock.LockHandle); unlockErr != nil {
 			warnings = append(warnings, strandedLockAdvice(objectURL, unlockErr))
@@ -389,6 +390,13 @@ func (c *Client) deleteTemporaryProgram(ctx context.Context, objectURL, programN
 		return warnings
 	}
 	c.ownTemps.remove(objectURL)
+	// The DELETE does not release the ENQUEUE the LOCK took: without this
+	// UNLOCK every execute_abap left an X lock on TRDIR of its deleted program
+	// in SM12 until the session timed out (seen live on PDS).
+	if unlockErr := c.releaseLockAfterDelete(ctx, objectURL, lock.LockHandle, lockGone); unlockErr != nil {
+		return []string{fmt.Sprintf("%s was deleted, but its lock was not released: %s", programName,
+			lockAdviceAfterDelete(objectURL, unlockErr))}
+	}
 	return nil
 }
 
