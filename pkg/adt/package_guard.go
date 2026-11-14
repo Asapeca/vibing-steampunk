@@ -92,8 +92,29 @@ func (c *Client) getObjectPackage(ctx context.Context, objectURL string, inLockS
 			return result.PackageName, nil
 		}
 	}
+	if fg := functionGroupIncludeURL(normalized, objectName, results); fg != "" {
+		return "", fmt.Errorf("%s is an include of a function group, not a program include: "+
+			"write it at %s (EditSource), and activate it with the function group's other changed includes", objectName, fg)
+	}
 
 	return "", fmt.Errorf("package metadata not found")
+}
+
+// functionGroupIncludeURL is the function group URL of an include asked for
+// as /programs/includes/NAME when the repository search knows NAME only as an
+// include of a function group (LZFG_DEF): the package gate then cannot match
+// the URL, and the caller needs the URL that does.
+func functionGroupIncludeURL(normalized, name string, results []SearchResult) string {
+	if !strings.Contains(normalized, "/programs/includes/") {
+		return ""
+	}
+	for _, r := range results {
+		u := strings.ToLower(r.URI)
+		if strings.EqualFold(r.Name, name) && strings.Contains(u, "/functions/groups/") && strings.Contains(u, "/includes/") {
+			return r.URI
+		}
+	}
+	return ""
 }
 
 func normalizeObjectURLForPackageCheck(objectURL string) string {
