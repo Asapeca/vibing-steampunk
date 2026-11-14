@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"sort"
@@ -55,6 +56,9 @@ func (c *Client) postCheckRun(ctx context.Context, objectURL string, content str
 	if !isClassInclude {
 		artifactURI = objectURL + "/source/main"
 	}
+	// A program include gets its main program as the context of the check
+	// object (checked live: on the artifact or on both works the same).
+	checkObjectURI += c.includeCheckContext(ctx, objectURL)
 	encodedContent := base64.StdEncoding.EncodeToString([]byte(content))
 
 	body := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
@@ -1456,4 +1460,18 @@ func (c *Client) RunATCCheck(ctx context.Context, objectURL string, variant stri
 	}
 
 	return worklist, nil
+}
+
+// includeCheckContext: a program include is checked by ADT only in the
+// context of a main program; without one the check run answers no messages
+// at all, whatever the content. It returns "?context=<main>" or "".
+func (c *Client) includeCheckContext(ctx context.Context, objectURL string) string {
+	if !strings.Contains(objectURL, "/programs/includes/") || strings.Contains(objectURL, "?") {
+		return ""
+	}
+	mains, err := c.includeMainPrograms(ctx, objectURL)
+	if err != nil || len(mains) == 0 {
+		return ""
+	}
+	return "?context=" + url.QueryEscape(mains[0].URI)
 }
