@@ -58,13 +58,31 @@ func TestSyntaxCheckGivesAProgramIncludeItsMainProgram(t *testing.T) {
 	}
 }
 
-// A program, a class and an include without a known main program are
-// checked as before.
+// An include whose main program is not known is not checked: ADT would
+// answer no messages whatever the text, a green that checked nothing.
+func TestSyntaxCheckRefusesAnIncludeWithoutAMainProgram(t *testing.T) {
+	for name, mains := range map[string]string{
+		"lookup fails": "",
+		"no programs":  mainProgramXML(),
+	} {
+		srv, bodies := checkRunServer(t, mains)
+		_, err := NewClient(srv.URL, "user", "pass").SyntaxCheck(context.Background(),
+			"/sap/bc/adt/programs/includes/zdemo_c01", "x.")
+		if err == nil || !strings.Contains(err.Error(), "not checked") {
+			t.Errorf("%s: want the check refused, got %v", name, err)
+		}
+		if got := bodies(); len(got) != 0 {
+			t.Errorf("%s: a check run without a context was sent: %v", name, got)
+		}
+		srv.Close()
+	}
+}
+
+// A program and a class are checked as before.
 func TestSyntaxCheckLeavesOtherObjectsAsTheyWere(t *testing.T) {
 	for name, tc := range map[string]struct{ url, mains string }{
-		"program":          {"/sap/bc/adt/programs/programs/zdemo", mainProgramXML("ZDEMO_MAIN")},
-		"class":            {"/sap/bc/adt/oo/classes/zcl_demo", mainProgramXML("ZDEMO_MAIN")},
-		"include, no main": {"/sap/bc/adt/programs/includes/zdemo_c01", ""},
+		"program": {"/sap/bc/adt/programs/programs/zdemo", mainProgramXML("ZDEMO_MAIN")},
+		"class":   {"/sap/bc/adt/oo/classes/zcl_demo", mainProgramXML("ZDEMO_MAIN")},
 	} {
 		srv, bodies := checkRunServer(t, tc.mains)
 		if _, err := NewClient(srv.URL, "user", "pass").SyntaxCheck(context.Background(), tc.url, "x."); err != nil {
