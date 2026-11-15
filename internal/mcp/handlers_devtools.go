@@ -81,6 +81,13 @@ func (s *Server) handleSyntaxCheck(ctx context.Context, request mcp.CallToolRequ
 		return newToolResultError("object_url is required"), nil
 	}
 
+	if parts, given, err := checkArtifacts(request.GetArguments()["artifacts"]); given {
+		if err != nil {
+			return newToolResultError(err.Error()), nil
+		}
+		return s.syntaxCheckParts(ctx, objectURL, parts)
+	}
+
 	content, ok := request.GetArguments()["content"].(string)
 	if !ok || content == "" {
 		return newToolResultError("content is required"), nil

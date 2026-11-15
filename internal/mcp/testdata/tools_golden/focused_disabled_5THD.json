@@ -2573,8 +2573,27 @@
       "description": "Check ABAP source code for syntax errors",
       "inputSchema": {
         "properties": {
+          "artifacts": {
+            "description": "Several unsaved parts of one class checked together: object_url is the class, each item {uri, content} with uri the class's source/main or includes/definitions, implementations, macros, testclasses; content is then not used",
+            "items": {
+              "properties": {
+                "content": {
+                  "type": "string"
+                },
+                "uri": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "uri",
+                "content"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "content": {
-            "description": "ABAP source code to check",
+            "description": "ABAP source code to check (required unless artifacts is given)",
             "type": "string"
           },
           "object_url": {
@@ -2583,8 +2602,7 @@
           }
         },
         "required": [
-          "object_url",
-          "content"
+          "object_url"
         ],
         "type": "object"
       },

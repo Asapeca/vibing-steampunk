@@ -16,8 +16,15 @@ func (s *Server) registerDevTools(shouldRegister func(string) bool) {
 				mcp.Description("ADT URL of the object (e.g., /sap/bc/adt/programs/programs/ZTEST)"),
 			),
 			mcp.WithString("content",
-				mcp.Required(),
-				mcp.Description("ABAP source code to check"),
+				mcp.Description("ABAP source code to check (required unless artifacts is given)"),
+			),
+			mcp.WithArray("artifacts",
+				mcp.Description("Several unsaved parts of one class checked together: object_url is the class, "+
+					"each item {uri, content} with uri the class's source/main or includes/definitions, "+
+					"implementations, macros, testclasses; content is then not used"),
+				mcp.Items(map[string]interface{}{"type": "object", "properties": map[string]interface{}{
+					"uri": map[string]interface{}{"type": "string"}, "content": map[string]interface{}{"type": "string"},
+				}, "required": []string{"uri", "content"}}),
 			),
 		), s.handleSyntaxCheck)
 	}
